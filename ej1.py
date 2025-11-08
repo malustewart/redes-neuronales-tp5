@@ -53,6 +53,20 @@ def plot_w_histogram_1d(W0, W1, params):
     ax[1].set_xlabel("W1")
     ax[0].set_title(params_to_str(params))
 
+def plot_w_se_ci(W0, W1, SE0, SE1, w0_golden, w1_golden):
+    fig, axs = plt.subplots(1,2)
+
+
+    for i, (w0, se0) in enumerate(zip(W0, SE0)):
+        l0 = w0 - 2*se0
+        u0 = w0 + 2*se0
+        color = 'k' if is_inside_confidence_interval(w0_golden, w0, se0) else 'r'
+        axs[0].plot([i,i], [l0,u0], marker = "o", color=color)
+    
+    axs[0].axhline(w0_golden)
+    
+    # todo: poner bien las labels
+
 def linear_regression(x: np.ndarray, y: np.ndarray):
     x_mean = x.mean()
     y_mean = y.mean()
@@ -111,7 +125,7 @@ if __name__ == '__main__':
             h = height[idx]
             w = weight[idx]
             W0[i][j], W1[i][j], RSS[i][j], TSS[i][j], σ_sqr[i][j], SE_sqr_w0[i][j], SE_sqr_w1[i][j] = calc_predictors(h, w)
-            
+
     w0_mean = W0.mean(axis=1)
     w0_std = W0.std(axis=1)
     w1_mean = W1.mean(axis=1)
@@ -126,6 +140,9 @@ if __name__ == '__main__':
 
     N_w0_intervals_contain_golden = np.array([sum(1 for w, se in zip(w0, se_w0) if is_inside_confidence_interval(w0_golden, w, se)) for w0, se_w0 in zip(W0, SE_W0)])
     N_w1_intervals_contain_golden = np.array([sum(1 for w, se in zip(w1, se_w1) if is_inside_confidence_interval(w1_golden, w, se)) for w1, se_w1 in zip(W1, SE_W1)])
+
+    plot_w_se_ci(W0[0][::50], W1[0][::50], SE_W0[0][::50], SE_W1[0][::50], w0_golden, w1_golden)
+    plot_w_se_ci(W0[2][::50], W1[2][::50], SE_W0[2][::50], SE_W1[2][::50], w0_golden, w1_golden)
 
 
 
