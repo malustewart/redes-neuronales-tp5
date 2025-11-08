@@ -90,19 +90,7 @@ if __name__ == '__main__':
     ns = [25, 100, 1000] #range(25,25000, 25)
     reps = 1000
 
-    W0_means = np.zeros(len(ns))
-    W0_stds = np.zeros(len(ns))
-    W1_means = np.zeros(len(ns))
-    W1_stds = np.zeros(len(ns))
-    SE0_means = np.zeros(len(ns))
-    SE1_means = np.zeros(len(ns))
-    SE0_stds = np.zeros(len(ns))
-    SE1_stds = np.zeros(len(ns))
-    N_w0_intervals_contain_golden = np.zeros(len(ns))
-    N_w1_intervals_contain_golden = np.zeros(len(ns))
-
     shape = (len(ns), reps)
-
     W0 = np.zeros(shape)
     W1 = np.zeros(shape)
     RSS = np.zeros(shape)
@@ -111,9 +99,11 @@ if __name__ == '__main__':
     SE_sqr_w0 = np.zeros(shape)
     SE_sqr_w1 = np.zeros(shape)
 
+    # Calcular valores "verdaderos" (la mejor estimacion posible)
     w0_golden, w1_golden, *_ = calc_predictors(height, weight)
     print(f"w0 golden = {w0_golden}\nw1 golden = {w1_golden}")
 
+    # Estimar para diferentes n
     for i, n in enumerate(ns):
         reps = reps if n < N else 1
         for j in range(reps):
@@ -122,31 +112,21 @@ if __name__ == '__main__':
             w = weight[idx]
             W0[i][j], W1[i][j], RSS[i][j], TSS[i][j], σ_sqr[i][j], SE_sqr_w0[i][j], SE_sqr_w1[i][j] = calc_predictors(h, w)
             
-        N_w0_intervals_contain_golden[i] = sum(1 for w, SE in zip(W0[i], np.sqrt(SE_sqr_w0[i])) if is_inside_confidence_interval(w0_golden, w, SE))
-        N_w1_intervals_contain_golden[i] = sum(1 for w, SE in zip(W1[i], np.sqrt(SE_sqr_w1[i])) if is_inside_confidence_interval(w1_golden, w, SE))
+    w0_mean = W0.mean(axis=1)
+    w0_std = W0.std(axis=1)
+    w1_mean = W1.mean(axis=1)
+    w1_std = W1.std(axis=1)
 
-        w0_mean = W0[i].mean()
-        w1_mean = W1[i].mean()
-        w0_std = W0[i].std()
-        w1_std = W1[i].std()
-        SE0_mean = np.sqrt(SE_sqr_w0[i]).mean()
-        SE1_mean = np.sqrt(SE_sqr_w1[i]).mean()
-        SE0_std = np.sqrt(SE_sqr_w0[i]).std()
-        SE1_std = np.sqrt(SE_sqr_w1[i]).std()
+    SE_W0 = np.sqrt(SE_sqr_w0)
+    SE_W1 = np.sqrt(SE_sqr_w1)
+    SE0_mean = SE_W0.mean(axis = 1)
+    SE1_mean = SE_W1.mean(axis = 1)
+    SE0_std = SE_W0.std(axis = 1)
+    SE1_std = SE_W1.std(axis = 1)
 
-        print(f"n={n}: w0 = {w0_mean}+-{w0_std}")
-        print(f"n={n}: w1 = {w1_mean}+-{w1_std}")
-        print(f"n={n}: SE0 = {SE0_mean}+-{SE0_std}")
-        print(f"n={n}: SE1 = {SE1_mean}+-{SE1_std}")
-        print(f"n={n}: N w0 intervals contains golden: {N_w0_intervals_contain_golden[i]}/{reps} = {N_w0_intervals_contain_golden[i]/reps}")
-        print(f"n={n}: N w1 intervals contains golden: {N_w1_intervals_contain_golden[i]}/{reps} = {N_w1_intervals_contain_golden[i]/reps}")
-        
-        W0_means[i] = w0_mean
-        W0_stds[i] = w0_std
-        W1_means[i] = w1_mean
-        W1_stds[i] = w1_std
+    N_w0_intervals_contain_golden = np.array([sum(1 for w, se in zip(w0, se_w0) if is_inside_confidence_interval(w0_golden, w, se)) for w0, se_w0 in zip(W0, SE_W0)])
+    N_w1_intervals_contain_golden = np.array([sum(1 for w, se in zip(w1, se_w1) if is_inside_confidence_interval(w1_golden, w, se)) for w1, se_w1 in zip(W1, SE_W1)])
 
-        # plot_w_histogram_2d(W0, W1, {"n":n, "N_rep": reps})
-        # plot_w_histogram_1d(W0, W1, {"n":n, "N_rep": reps})
+
 
     plt.show()
