@@ -84,58 +84,62 @@ def is_inside_confidence_interval(value, mean, SE):
     return value > mean - 2*SE and value < mean + 2*SE
 
 if __name__ == '__main__':
+    np.random.seed(12345)
     height, weight = read_data('AlturaPeso.dat')
     N = len(height)
     ns = [25, 100, 1000] #range(25,25000, 25)
     reps = 1000
+
     W0_means = np.zeros(len(ns))
     W0_stds = np.zeros(len(ns))
     W1_means = np.zeros(len(ns))
     W1_stds = np.zeros(len(ns))
+    SE0_means = np.zeros(len(ns))
+    SE1_means = np.zeros(len(ns))
+    SE0_stds = np.zeros(len(ns))
+    SE1_stds = np.zeros(len(ns))
+    N_w0_intervals_contain_golden = np.zeros(len(ns))
+    N_w1_intervals_contain_golden = np.zeros(len(ns))
+
+    shape = (len(ns), reps)
+
+    W0 = np.zeros(shape)
+    W1 = np.zeros(shape)
+    RSS = np.zeros(shape)
+    TSS = np.zeros(shape)
+    σ_sqr = np.zeros(shape)
+    SE_sqr_w0 = np.zeros(shape)
+    SE_sqr_w1 = np.zeros(shape)
 
     w0_golden, w1_golden, *_ = calc_predictors(height, weight)
     print(f"w0 golden = {w0_golden}\nw1 golden = {w1_golden}")
 
     for i, n in enumerate(ns):
         reps = reps if n < N else 1
-        W0 = np.zeros(reps)
-        W1 = np.zeros(reps)
-        RSS = np.zeros(reps)
-        TSS = np.zeros(reps)
-        σ_sqr = np.zeros(reps)
-        SE_sqr_w0 = np.zeros(reps)
-        SE_sqr_w1 = np.zeros(reps)
         for j in range(reps):
             idx = random.sample(range(N), n)
             h = height[idx]
             w = weight[idx]
-            w0, w1, rss, tss, sigma_sqr, se_sqr_w0, se_sqr_w1 = calc_predictors(h, w)
-            W0[j] = w0
-            W1[j] = w1
-            RSS[j] = rss
-            TSS[j] = tss
-            σ_sqr[j] = sigma_sqr
-            SE_sqr_w0[j] = se_sqr_w0
-            SE_sqr_w1[j] = se_sqr_w1
+            W0[i][j], W1[i][j], RSS[i][j], TSS[i][j], σ_sqr[i][j], SE_sqr_w0[i][j], SE_sqr_w1[i][j] = calc_predictors(h, w)
             
-        N_w0_intervals_contain_golden = sum(1 for w, SE in zip(W0, np.sqrt(SE_sqr_w0)) if is_inside_confidence_interval(w0_golden, w, SE))
-        N_w1_intervals_contain_golden = sum(1 for w, SE in zip(W1, np.sqrt(SE_sqr_w1)) if is_inside_confidence_interval(w1_golden, w, SE))
+        N_w0_intervals_contain_golden[i] = sum(1 for w, SE in zip(W0[i], np.sqrt(SE_sqr_w0[i])) if is_inside_confidence_interval(w0_golden, w, SE))
+        N_w1_intervals_contain_golden[i] = sum(1 for w, SE in zip(W1[i], np.sqrt(SE_sqr_w1[i])) if is_inside_confidence_interval(w1_golden, w, SE))
 
-        w0_mean = W0.mean()
-        w1_mean = W1.mean()
-        w0_std = W0.std()
-        w1_std = W1.std()
-        SE0_mean = np.sqrt(SE_sqr_w0).mean()
-        SE1_mean = np.sqrt(SE_sqr_w1).mean()
-        SE0_std = np.sqrt(SE_sqr_w0).std()
-        SE1_std = np.sqrt(SE_sqr_w1).std()
+        w0_mean = W0[i].mean()
+        w1_mean = W1[i].mean()
+        w0_std = W0[i].std()
+        w1_std = W1[i].std()
+        SE0_mean = np.sqrt(SE_sqr_w0[i]).mean()
+        SE1_mean = np.sqrt(SE_sqr_w1[i]).mean()
+        SE0_std = np.sqrt(SE_sqr_w0[i]).std()
+        SE1_std = np.sqrt(SE_sqr_w1[i]).std()
 
         print(f"n={n}: w0 = {w0_mean}+-{w0_std}")
         print(f"n={n}: w1 = {w1_mean}+-{w1_std}")
         print(f"n={n}: SE0 = {SE0_mean}+-{SE0_std}")
         print(f"n={n}: SE1 = {SE1_mean}+-{SE1_std}")
-        print(f"n={n}: N w0 intervals contains golden: {N_w0_intervals_contain_golden}/{reps} = {N_w0_intervals_contain_golden/reps}")
-        print(f"n={n}: N w1 intervals contains golden: {N_w1_intervals_contain_golden}/{reps} = {N_w1_intervals_contain_golden/reps}")
+        print(f"n={n}: N w0 intervals contains golden: {N_w0_intervals_contain_golden[i]}/{reps} = {N_w0_intervals_contain_golden[i]/reps}")
+        print(f"n={n}: N w1 intervals contains golden: {N_w1_intervals_contain_golden[i]}/{reps} = {N_w1_intervals_contain_golden[i]/reps}")
         
         W0_means[i] = w0_mean
         W0_stds[i] = w0_std
