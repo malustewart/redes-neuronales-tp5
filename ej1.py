@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import csv
 from typing import Optional
 import random
+from tqdm import tqdm
+import argparse
 
 def read_data(filename):
     with open(filename, newline='') as f:
@@ -53,19 +55,29 @@ def plot_w_histogram_1d(W0, W1, params):
     ax[1].set_xlabel("W1")
     ax[0].set_title(params_to_str(params))
 
-def plot_w_se_ci(W0, W1, SE0, SE1, w0_golden, w1_golden):
-    fig, axs = plt.subplots(1,2)
+def plot_w_se_ci(W0, W1, SE0, SE1, w0_golden, w1_golden, x_indices, x_label, params={}, filename=None):
+    fig, axs = plt.subplots(2,1, figsize=(15,7))
 
+    for i, (W,SE,w_golden) in enumerate(zip([W0, W1], [SE0, SE1], [w0_golden, w1_golden])):
+        for w, se, x in zip(W, SE, x_indices):
+            l0 = w - 2*se
+            u0 = w + 2*se
+            color = 'k' if is_inside_confidence_interval(w_golden, w, se) else 'r'
+            axs[i].plot([x,x], [l0,u0], marker = "o", color=color, linewidth=0.6, markersize=1)
+        axs[i].axhline(w_golden, color='k')
+        axs[i].grid(linewidth=0.3, alpha=0.5)
+        axs[i].set_ylabel(f"w{i}")
+        axs[i].set_xlabel(x_label)
 
-    for i, (w0, se0) in enumerate(zip(W0, SE0)):
-        l0 = w0 - 2*se0
-        u0 = w0 + 2*se0
-        color = 'k' if is_inside_confidence_interval(w0_golden, w0, se0) else 'r'
-        axs[0].plot([i,i], [l0,u0], marker = "o", color=color)
-    
-    axs[0].axhline(w0_golden)
-    
-    # todo: poner bien las labels
+    fig.suptitle(params_to_str(params))
+
+    fig.tight_layout()
+
+    if filename:
+        fig.savefig(filename)
+        plt.close(fig)
+    else:
+        fig.show()
 
 def linear_regression(x: np.ndarray, y: np.ndarray):
     x_mean = x.mean()
@@ -97,13 +109,7 @@ def calc_predictors(h:np.ndarray, w:np.ndarray):
 def is_inside_confidence_interval(value, mean, SE):
     return value > mean - 2*SE and value < mean + 2*SE
 
-if __name__ == '__main__':
-    np.random.seed(12345)
-    height, weight = read_data('AlturaPeso.dat')
-    N = len(height)
-    ns = [25, 100, 1000] #range(25,25000, 25)
-    reps = 1000
-
+def generate_data(N, ns, reps):
     shape = (len(ns), reps)
     W0 = np.zeros(shape)
     W1 = np.zeros(shape)
@@ -113,37 +119,80 @@ if __name__ == '__main__':
     SE_sqr_w0 = np.zeros(shape)
     SE_sqr_w1 = np.zeros(shape)
 
-    # Calcular valores "verdaderos" (la mejor estimacion posible)
-    w0_golden, w1_golden, *_ = calc_predictors(height, weight)
-    print(f"w0 golden = {w0_golden}\nw1 golden = {w1_golden}")
-
-    # Estimar para diferentes n
-    for i, n in enumerate(ns):
+    for i, n in enumerate(tqdm(ns)):
         reps = reps if n < N else 1
         for j in range(reps):
             idx = random.sample(range(N), n)
             h = height[idx]
             w = weight[idx]
             W0[i][j], W1[i][j], RSS[i][j], TSS[i][j], σ_sqr[i][j], SE_sqr_w0[i][j], SE_sqr_w1[i][j] = calc_predictors(h, w)
+    return W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1
 
-    w0_mean = W0.mean(axis=1)
-    w0_std = W0.std(axis=1)
-    w1_mean = W1.mean(axis=1)
-    w1_std = W1.std(axis=1)
+def store_data(filename, W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1):
+    results = dict(
+        W0=W0,
+        W1=W1,
+        RSS=RSS,
+        TSS=TSS,
+        σ_sqr=σ_sqr,
+        SE_sqr_w0=SE_sqr_w0,
+        SE_sqr_w1=SE_sqr_w1
+    )
+    np.savez_compressed(filename, *results)
 
-    SE_W0 = np.sqrt(SE_sqr_w0)
-    SE_W1 = np.sqrt(SE_sqr_w1)
-    SE0_mean = SE_W0.mean(axis = 1)
-    SE1_mean = SE_W1.mean(axis = 1)
-    SE0_std = SE_W0.std(axis = 1)
-    SE1_std = SE_W1.std(axis = 1)
+def load_data(filename):
+    data = np.load(filename)
+    return data["W0"], data["W1"], data["RSS"], data["TSS"], data["σ_sqr"], data["SE_sqr_w0"], data["SE_sqr_w1"]
 
-    N_w0_intervals_contain_golden = np.array([sum(1 for w, se in zip(w0, se_w0) if is_inside_confidence_interval(w0_golden, w, se)) for w0, se_w0 in zip(W0, SE_W0)])
-    N_w1_intervals_contain_golden = np.array([sum(1 for w, se in zip(w1, se_w1) if is_inside_confidence_interval(w1_golden, w, se)) for w1, se_w1 in zip(W1, SE_W1)])
+if __name__ == '__main__':
+    np.random.seed(12345)
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument("--generate", type=str, default=None,
+                        help="Path to a new .npz file to be created.")
+    parser.add_argument("--load", type=str, default=None,
+                        help="Path to an existing .npz file.")
+    parser.add_argument("--analyze",
+                        help="Analyze data.")
+    args = parser.parse_args()
 
-    plot_w_se_ci(W0[0][::50], W1[0][::50], SE_W0[0][::50], SE_W1[0][::50], w0_golden, w1_golden)
-    plot_w_se_ci(W0[2][::50], W1[2][::50], SE_W0[2][::50], SE_W1[2][::50], w0_golden, w1_golden)
+    height, weight = read_data('AlturaPeso.dat')
+    N = len(height)
+    ns = [10] + list(range(25,25000-25, 25))
+    reps = 1000
 
+    if args.generate:
+        W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1 = generate_data(N, ns, reps)
+        store_data(args.generate, W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1)
 
+    if args.load:
+        W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1 = load_data(args.load)
 
-    plt.show()
+    if args.analyze:
+        # Calcular valores "verdaderos" (la mejor estimacion posible)
+        w0_golden, w1_golden, *_ = calc_predictors(height, weight)
+        print(f"w0 golden = {w0_golden}\nw1 golden = {w1_golden}")
+
+        w0_mean = W0.mean(axis=1)
+        w0_std = W0.std(axis=1)
+        w1_mean = W1.mean(axis=1)
+        w1_std = W1.std(axis=1)
+
+        SE_W0 = np.sqrt(SE_sqr_w0)
+        SE_W1 = np.sqrt(SE_sqr_w1)
+        SE0_mean = SE_W0.mean(axis = 1)
+        SE1_mean = SE_W1.mean(axis = 1)
+        SE0_std = SE_W0.std(axis = 1)
+        SE1_std = SE_W1.std(axis = 1)
+
+        N_w0_intervals_contain_golden = np.array([sum(1 for w, se in zip(w0, se_w0) if is_inside_confidence_interval(w0_golden, w, se)) for w0, se_w0 in zip(W0, SE_W0)])
+        N_w1_intervals_contain_golden = np.array([sum(1 for w, se in zip(w1, se_w1) if is_inside_confidence_interval(w1_golden, w, se)) for w1, se_w1 in zip(W1, SE_W1)])
+
+        step = 1
+        x_indices = range(0, len(W0[0]), step)
+
+        for i, n in enumerate(ns[::200]):
+            params  = {"n samples":n, "N reps": reps, "w0 CI misses": reps - N_w0_intervals_contain_golden[i], "w1 CI misses": reps - N_w1_intervals_contain_golden[i]}
+            filename = f"figures/w_CI_n_{n}_reps_{reps}"
+            plot_w_se_ci(W0[i][::step], W1[i][::step], SE_W0[i][::step], SE_W1[i][::step], w0_golden, w1_golden, x_indices, "Repetición", params=params, filename=filename)
+
+        plt.show()
