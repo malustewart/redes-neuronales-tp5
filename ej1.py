@@ -191,6 +191,7 @@ if __name__ == '__main__':
         x_indices = range(0, len(W0[0]), step)
 
         for i, n in enumerate(ns[::200]):
+            #todo: add mean w0,w1 SE0, SE1
             params  = {"n samples":n, "N reps": reps, "w0 CI misses": reps - N_w0_intervals_contain_golden[i], "w1 CI misses": reps - N_w1_intervals_contain_golden[i]}
             filename = f"figures/w_CI_n_{n}_reps_{reps}"
             plot_w_se_ci(W0[i][::step], W1[i][::step], SE_W0[i][::step], SE_W1[i][::step], w0_golden, w1_golden, x_indices, "Repetición", params=params, filename=filename)
