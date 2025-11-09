@@ -151,7 +151,7 @@ if __name__ == '__main__':
                         help="Path to a new .npz file to be created.")
     parser.add_argument("--load", type=str, default=None,
                         help="Path to an existing .npz file.")
-    parser.add_argument("--analyze",
+    parser.add_argument("--analyze", action='store_true',
                         help="Analyze data.")
     args = parser.parse_args()
 
