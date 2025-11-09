@@ -138,7 +138,7 @@ def store_data(filename, W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1):
         SE_sqr_w0=SE_sqr_w0,
         SE_sqr_w1=SE_sqr_w1
     )
-    np.savez_compressed(filename, *results)
+    np.savez_compressed(filename, **results)
 
 def load_data(filename):
     data = np.load(filename)
