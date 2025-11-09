@@ -55,22 +55,29 @@ def plot_w_histogram_1d(W0, W1, params):
     ax[1].set_xlabel("W1")
     ax[0].set_title(params_to_str(params))
 
-def plot_w_se_ci(W0, W1, SE0, SE1, w0_golden, w1_golden, x_indices, x_label, params={}, filename=None):
+def plot_w_se_ci(W0, W1, SE0, SE1, w0_golden, w1_golden, x_indices, x_label, params={}, semilogx=False, filename=None):
     fig, axs = plt.subplots(2,1, figsize=(15,7))
 
     for i, (W,SE,w_golden) in enumerate(zip([W0, W1], [SE0, SE1], [w0_golden, w1_golden])):
+        black_line, red_line = None, None
         for w, se, x in zip(W, SE, x_indices):
             l0 = w - 2*se
             u0 = w + 2*se
-            color = 'k' if is_inside_confidence_interval(w_golden, w, se) else 'r'
-            axs[i].plot([x,x], [l0,u0], marker = "o", color=color, linewidth=0.6, markersize=1)
-        axs[i].axhline(w_golden, color='k')
+            marker = 'o'
+            linewidth=0.6
+            markersize=1
+            plot_func = axs[i].semilogx if semilogx else axs[i].plot
+            if is_inside_confidence_interval(w_golden, w, se):
+                black_line, = plot_func([x,x], [l0,u0], marker=marker, color='k', linewidth=linewidth, markersize=markersize, label=f"IC contiene w{i} real")
+            else:
+                red_line, = plot_func([x,x], [l0,u0], marker=marker, color='r', linewidth=linewidth, markersize=markersize, label=f"IC no contiene w{i} real")
+        axs[i].axhline(w_golden, color='k', label=f"Valor real w{i}")
         axs[i].grid(linewidth=0.3, alpha=0.5)
         axs[i].set_ylabel(f"w{i}")
         axs[i].set_xlabel(x_label)
+        axs[i].legend(handles=[line for line in [black_line, red_line] if line is not None])
 
     fig.suptitle(params_to_str(params))
-
     fig.tight_layout()
 
     if filename:
@@ -128,7 +135,7 @@ def generate_data(N, ns, reps):
             W0[i][j], W1[i][j], RSS[i][j], TSS[i][j], σ_sqr[i][j], SE_sqr_w0[i][j], SE_sqr_w1[i][j] = calc_predictors(h, w)
     return W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1
 
-def store_data(filename, W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1):
+def store_data(filename, W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1, ns):
     results = dict(
         W0=W0,
         W1=W1,
@@ -136,13 +143,14 @@ def store_data(filename, W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1):
         TSS=TSS,
         σ_sqr=σ_sqr,
         SE_sqr_w0=SE_sqr_w0,
-        SE_sqr_w1=SE_sqr_w1
+        SE_sqr_w1=SE_sqr_w1,
+        ns=ns
     )
     np.savez_compressed(filename, **results)
 
 def load_data(filename):
     data = np.load(filename)
-    return data["W0"], data["W1"], data["RSS"], data["TSS"], data["σ_sqr"], data["SE_sqr_w0"], data["SE_sqr_w1"]
+    return data["W0"], data["W1"], data["RSS"], data["TSS"], data["σ_sqr"], data["SE_sqr_w0"], data["SE_sqr_w1"], data["ns"]
 
 if __name__ == '__main__':
     np.random.seed(12345)
@@ -157,15 +165,16 @@ if __name__ == '__main__':
 
     height, weight = read_data('AlturaPeso.dat')
     N = len(height)
-    ns = [10] + list(range(25,25000-25, 25))
+    ns = [int(n) for n in np.logspace(1, np.log10(24500), 15)]
+
     reps = 1000
 
     if args.generate:
         W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1 = generate_data(N, ns, reps)
-        store_data(args.generate, W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1)
+        store_data(args.generate, W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1, ns)
 
     if args.load:
-        W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1 = load_data(args.load)
+        W0, W1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1, ns = load_data(args.load)
 
     if args.analyze:
         # Calcular valores "verdaderos" (la mejor estimacion posible)
@@ -187,13 +196,16 @@ if __name__ == '__main__':
         N_w0_intervals_contain_golden = np.array([sum(1 for w, se in zip(w0, se_w0) if is_inside_confidence_interval(w0_golden, w, se)) for w0, se_w0 in zip(W0, SE_W0)])
         N_w1_intervals_contain_golden = np.array([sum(1 for w, se in zip(w1, se_w1) if is_inside_confidence_interval(w1_golden, w, se)) for w1, se_w1 in zip(W1, SE_W1)])
 
+        # Plotear w mean y SE mean en funcion de n
+        params  = {"N reps": reps}
+        filename = f"figures/w_CI_mean_reps_{reps}"
+        plot_w_se_ci(w0_mean, w1_mean, SE0_mean, SE1_mean, w0_golden, w1_golden, ns, "n", params=params, semilogx=True, filename=filename)
+
+        # Plotear para cada n los intervalos de confianza obtenidos en todas las reps
         step = 1
         x_indices = range(0, len(W0[0]), step)
 
-        for i, n in enumerate(ns[::200]):
-            #todo: add mean w0,w1 SE0, SE1
+        for i, n in enumerate(ns):
             params  = {"n samples":n, "N reps": reps, "w0 CI misses": reps - N_w0_intervals_contain_golden[i], "w1 CI misses": reps - N_w1_intervals_contain_golden[i]}
             filename = f"figures/w_CI_n_{n}_reps_{reps}"
             plot_w_se_ci(W0[i][::step], W1[i][::step], SE_W0[i][::step], SE_W1[i][::step], w0_golden, w1_golden, x_indices, "Repetición", params=params, filename=filename)
-
-        plt.show()
