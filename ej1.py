@@ -36,7 +36,7 @@ def plot_data(height: np.ndarray, weight: np.ndarray, w0: float, w1: float, file
 def params_to_str(params:dict, sep:str = " - "):
     return sep.join(f"{k}: {v}" for k,v in params.items())
 
-def plot_w_histogram_2d(W0, W1, params, filepath=None):
+def plot_w_histogram_2d(W0, W1, params, filename=None):
     fig, ax = plt.subplots()
     _, _, _, im = ax.hist2d(W0, W1, bins=[50,50], density=True)
     cbar = fig.colorbar(im, ax=ax)
@@ -44,16 +44,49 @@ def plot_w_histogram_2d(W0, W1, params, filepath=None):
     ax.set_title(params_to_str(params))
     ax.set_xlabel("W0")
     ax.set_ylabel("W1")
-    if filepath:
-        fig.savefig(filepath)
+    if filename:
+        fig.savefig(filename)
+        plt.close(fig)
+    else:
+        fig.show()
 
-def plot_w_histogram_1d(W0, W1, params):
+def plot_w_histogram_1d(W0, W1, w0_golden, w1_golden, w0_mean, w1_mean, params, filename=None):
     fig, ax = plt.subplots(2,1)
     ax[0].hist(W0, density=True)
     ax[0].set_xlabel("W0")
+    ax[0].axvline(w0_golden, label="w0 real", color='k')
+    ax[0].axvline(w0_mean, label="w0 estimado promedio", color='r')
+    ax[0].legend()
     ax[1].hist(W1, density=True)
     ax[1].set_xlabel("W1")
-    ax[0].set_title(params_to_str(params))
+    ax[1].axvline(w1_golden, label="w1 real", color='k')
+    ax[1].axvline(w1_mean, label="w1 estimado promedio", color='r')
+    ax[1].legend()
+    
+    fig.suptitle(params_to_str(params))
+    fig.tight_layout()
+    
+    if filename:
+        fig.savefig(filename)
+        plt.close(fig)
+    else:
+        fig.show()
+
+def plot_alpha(W0_α, W1_α, ns, params, filename=None):
+    fig, ax = plt.subplots()
+
+    for i, α in enumerate([W0_α, W1_α]):
+        ax.semilogx(ns, α, label=f'α w{i}')
+    ax.grid()
+    ax.legend()
+    fig.suptitle(params_to_str(params))
+
+    if filename:
+        fig.savefig(filename)
+        plt.close(fig)
+    else:
+        fig.show()
+
 
 def plot_w_se_ci(W0, W1, SE0, SE1, w0_golden, w1_golden, x_indices, x_label, params={}, semilogx=False, filename=None):
     fig, axs = plt.subplots(2,1, figsize=(15,7))
@@ -195,17 +228,31 @@ if __name__ == '__main__':
 
         N_w0_intervals_contain_golden = np.array([sum(1 for w, se in zip(w0, se_w0) if is_inside_confidence_interval(w0_golden, w, se)) for w0, se_w0 in zip(W0, SE_W0)])
         N_w1_intervals_contain_golden = np.array([sum(1 for w, se in zip(w1, se_w1) if is_inside_confidence_interval(w1_golden, w, se)) for w1, se_w1 in zip(W1, SE_W1)])
+        W0_α = (reps - N_w0_intervals_contain_golden) /  N_w0_intervals_contain_golden
+        W1_α = (reps - N_w1_intervals_contain_golden) /  N_w1_intervals_contain_golden
 
         # Plotear w mean y SE mean en funcion de n
         params  = {"N reps": reps}
         filename = f"figures/w_CI_mean_reps_{reps}"
         plot_w_se_ci(w0_mean, w1_mean, SE0_mean, SE1_mean, w0_golden, w1_golden, ns, "n", params=params, semilogx=True, filename=filename)
 
+        # Plotear los alphas de los CI en funcion de n
+        params = {"N reps": reps}
+        filename = f"figures/alpha_reps_{reps}"
+        plot_alpha(W0_α, W1_α, ns, params, filename)
+
         # Plotear para cada n los intervalos de confianza obtenidos en todas las reps
         step = 1
         x_indices = range(0, len(W0[0]), step)
 
-        for i, n in enumerate(ns):
-            params  = {"n samples":n, "N reps": reps, "w0 CI misses": reps - N_w0_intervals_contain_golden[i], "w1 CI misses": reps - N_w1_intervals_contain_golden[i]}
-            filename = f"figures/w_CI_n_{n}_reps_{reps}"
-            plot_w_se_ci(W0[i][::step], W1[i][::step], SE_W0[i][::step], SE_W1[i][::step], w0_golden, w1_golden, x_indices, "Repetición", params=params, filename=filename)
+        # for i, n in enumerate(tqdm(ns, desc="CI Plots")):
+        #     params  = {"n samples":n, "N reps": reps, "α w0": W0_α[i], "α w1": W1_α[i]}
+        #     filename = f"figures/w_CI_n_{n}_reps_{reps}"
+        #     plot_w_se_ci(W0[i][::step], W1[i][::step], SE_W0[i][::step], SE_W1[i][::step], w0_golden, w1_golden, x_indices, "Repetición", params=params, filename=filename)
+    
+
+        # # Plotear para cada n el histograma de los w
+        # for i, n in enumerate(tqdm(ns, desc="w histograms")):
+        #     params  = {"n samples":n, "N reps": reps, "α w0": W0_α[i], "α w1": W1_α[i]}
+        #     filename = f"figures/w_n_{n}_reps_{reps}"
+        #     plot_w_histogram_1d(W0[i][::step], W1[i][::step], w0_golden, w1_golden, w0_mean[i], w1_mean[i], params=params, filename=filename)
