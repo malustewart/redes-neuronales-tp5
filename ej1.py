@@ -87,6 +87,24 @@ def plot_alpha(W0_α, W1_α, ns, params, filename=None):
     else:
         fig.show()
 
+def plot_se(SE0, SE1, x_indices, x_label, params={}, semilogx=False, filename=None):
+    fig, axs = plt.subplots(2,1, figsize=(15,7))
+
+    for i, SE in enumerate([SE0, SE1]):
+        plot_func = axs[i].loglog if semilogx else axs[i].plot
+        plot_func(x_indices, SE)
+        axs[i].grid(linewidth=0.3, alpha=0.5)
+        axs[i].set_ylabel(f"SE{i}")
+        axs[i].set_xlabel(x_label)
+
+    fig.suptitle(params_to_str(params))
+    fig.tight_layout()
+
+    if filename:
+        fig.savefig(filename)
+        plt.close(fig)
+    else:
+        fig.show()
 
 def plot_w_se_ci(W0, W1, SE0, SE1, w0_golden, w1_golden, x_indices, x_label, params={}, semilogx=False, filename=None):
     fig, axs = plt.subplots(2,1, figsize=(15,7))
@@ -94,8 +112,8 @@ def plot_w_se_ci(W0, W1, SE0, SE1, w0_golden, w1_golden, x_indices, x_label, par
     for i, (W,SE,w_golden) in enumerate(zip([W0, W1], [SE0, SE1], [w0_golden, w1_golden])):
         black_line, red_line = None, None
         for w, se, x in zip(W, SE, x_indices):
-            l0 = w - 2*se
-            u0 = w + 2*se
+            l0 = w - 1.96*se
+            u0 = w + 1.96*se
             marker = 'o'
             linewidth=0.6
             markersize=1
@@ -147,7 +165,7 @@ def calc_predictors(h:np.ndarray, w:np.ndarray):
     return w0, w1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1
 
 def is_inside_confidence_interval(value, mean, SE):
-    return value > mean - 2*SE and value < mean + 2*SE
+    return value > mean - 1.96*SE and value < mean + 1.96*SE
 
 def generate_data(N, ns, reps):
     shape = (len(ns), reps)
@@ -231,10 +249,28 @@ if __name__ == '__main__':
         W0_α = (reps - N_w0_intervals_contain_golden) /  N_w0_intervals_contain_golden
         W1_α = (reps - N_w1_intervals_contain_golden) /  N_w1_intervals_contain_golden
 
-        # Plotear w mean y SE mean en funcion de n
+        # Plotear CI de w mean y SE mean en funcion de n
         params  = {"N reps": reps}
         filename = f"figures/w_CI_mean_reps_{reps}"
         plot_w_se_ci(w0_mean, w1_mean, SE0_mean, SE1_mean, w0_golden, w1_golden, ns, "n", params=params, semilogx=True, filename=filename)
+        
+        # Plotear CI de 2 reps random en funcion de n
+        filename = f"figures/w_CI_single_rep_0"
+        plot_w_se_ci(W0[:,0], W1[:,0], SE_W0[:,0], SE_W1[:, 0], w0_golden, w1_golden, ns, "n", params=params, semilogx=True, filename=filename)
+
+        filename = f"figures/w_CI_single_rep_1"
+        plot_w_se_ci(W0[:,1], W1[:,1], SE_W0[:,1], SE_W1[:, 1], w0_golden, w1_golden, ns, "n", params=params, semilogx=True, filename=filename)
+
+        # Plotear SE mean en funcion de n
+        params = {"N reps": reps}
+        filename = f"figures/SE_mean_reps_{reps}"
+        plot_se(SE0_mean, SE1_mean, ns, "n", params, True, filename)
+
+        # Plotear SE de iteración random en funcion de n
+        params = {"N reps": reps}
+        filename = f"figures/SE_single_rep"
+        plot_se(SE_W0[:,0], SE_W0[:,0], ns, "n", params, True, filename)
+
 
         # Plotear los alphas de los CI en funcion de n
         params = {"N reps": reps}
@@ -245,14 +281,14 @@ if __name__ == '__main__':
         step = 1
         x_indices = range(0, len(W0[0]), step)
 
-        # for i, n in enumerate(tqdm(ns, desc="CI Plots")):
-        #     params  = {"n samples":n, "N reps": reps, "α w0": W0_α[i], "α w1": W1_α[i]}
-        #     filename = f"figures/w_CI_n_{n}_reps_{reps}"
-        #     plot_w_se_ci(W0[i][::step], W1[i][::step], SE_W0[i][::step], SE_W1[i][::step], w0_golden, w1_golden, x_indices, "Repetición", params=params, filename=filename)
+        for i, n in enumerate(tqdm(ns, desc="CI Plots")):
+            params  = {"n samples":n, "N reps": reps, "α w0": W0_α[i], "α w1": W1_α[i]}
+            filename = f"figures/w_CI_n_{n}_reps_{reps}"
+            plot_w_se_ci(W0[i][::step], W1[i][::step], SE_W0[i][::step], SE_W1[i][::step], w0_golden, w1_golden, x_indices, "Repetición", params=params, filename=filename)
     
 
-        # # Plotear para cada n el histograma de los w
-        # for i, n in enumerate(tqdm(ns, desc="w histograms")):
-        #     params  = {"n samples":n, "N reps": reps, "α w0": W0_α[i], "α w1": W1_α[i]}
-        #     filename = f"figures/w_n_{n}_reps_{reps}"
-        #     plot_w_histogram_1d(W0[i][::step], W1[i][::step], w0_golden, w1_golden, w0_mean[i], w1_mean[i], params=params, filename=filename)
+        # Plotear para cada n el histograma de los w
+        for i, n in enumerate(tqdm(ns, desc="w histograms")):
+            params  = {"n samples":n, "N reps": reps, "α w0": W0_α[i], "α w1": W1_α[i]}
+            filename = f"figures/w_n_{n}_reps_{reps}"
+            plot_w_histogram_1d(W0[i][::step], W1[i][::step], w0_golden, w1_golden, w0_mean[i], w1_mean[i], params=params, filename=filename)
