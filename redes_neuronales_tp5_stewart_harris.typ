@@ -72,7 +72,7 @@ def calc_predictors(h:np.ndarray, w:np.ndarray):
     return w0, w1, RSS, TSS, σ_sqr, SE_sqr_w0, SE_sqr_w1
 ```
 
-== Error en el cálculo de parámetros $w_0, w_1$
+== Error en el cálculo de predictores
 
 Se calculan $w_0, w_1$ utilizando una regresión lineal de un subconjunto de los 25000 datos de entrenamiento disponibles, y luego se estudia el error en la estimación de los predcitores en función de la cantidad de datos elegidos.
 
@@ -93,27 +93,49 @@ Luego, para N entre 10 y 24500, se repite 1000 veces:
 La @w_164 muestra los resultados obtenidos para $N=164$. Los valores obtenidos para #w0est y #w1est siguen aproximadamente una disctribución normal (@w_hist_164). La @w_IC_164 muestra los 1000 intervalos de confianza obtenidos. En negro se grafican los intervalos de confianza que contienen el valor real, y en rojo los que no lo contienen.
 
 #subpar.grid(
-    columns: (1fr),
-    figure(image("figures/w_n_162_reps_1000.png", width: 70%), caption: [Histogramas de #w0est, #w1est, para N=164 y 1000 repeticiones. ]), <w_hist_164>,
-    figure(image("figures/w_CI_n_162_reps_1000.png"), caption: [ $I C_0, I C_1$ para N=164 y 1000 repeticiones. Las líneas horizontales marcan #w0p, #w1p.]), <w_IC_164>,
+  columns: (1fr),
+  figure(image("figures/w_n_162_reps_1000.png", width: 70%), caption: [Histogramas de #w0est, #w1est, para N=164 y 1000 repeticiones. ]), <w_hist_164>,
+  figure(image("figures/w_CI_n_162_reps_1000.png"), caption: [ $I C_0, I C_1$ para N=164 y 1000 repeticiones. Las líneas horizontales marcan #w0p, #w1p.]), <w_IC_164>,
 
-    caption: [],
-    label: <w_164>
-  )
+  caption: [],
+  label: <w_164>
+)
 
-Al aumentar $N$, $I C_0$ y $I C_1$ reducen su amplitud y se centran en #w0p, y #w1p respectivamente. En otras palabras, el error de la estimación se reduce al aumentar $N$.
+Al aumentar $N$, $I C_0$ y $I C_1$ reducen su amplitud y se centran en #w0p, y #w1p respectivamente. En otras palabras, el error de la estimación se reduce al aumentar $N$ (@w_CI_single_rep).
 
-#figure(image("figures/w_CI_mean_reps_1000.png"), caption: [Promedio de 1000 intervalos de confianza de #w0est, #w1est en función de $N$.]), <w_CI_mean>
+#subpar.grid(
+  columns: (1fr),
+  figure(image("figures/w_CI_single_rep_0.png"), caption: [Primera repetición.]), <w_CI_single_rep_0>,
+  figure(image("figures/w_CI_single_rep_1.png"), caption: [Segunda repetición.]), <w_CI_single_rep_1>,
 
-#todo-inline([Chequear el grafico anterior])
+  caption: [$I C_0$ y $I C_1$ en función de $N$ para dos repeticiones distintas. ],
+  label: <w_CI_single_rep>
+)
 
+La relación entre las amplitudes promedio de los intervalos de confianza y la cantidad de datos tomados sigue la ley de potencias (ver @SE, y observar la relación lineal con escalas logaritmicas en ambos ejes).
 
-== 
+Las pendientes de los gráficos son:
+$
+  (Delta log(S E_0,1))/(Delta log(N)) =  alpha approx -0.5
+$
 
+A partir de las pendientes de los gráficos, se obtiene:
 
-#todo-inline([IC para todas una rep (o el promedio de todas?) de todos los n. Comentar que se reduce SE. En los graficos poner el area sombreada con fill_between])
+$
+  S E_(0,1) prop 1/sqrt(N)
+$
 
-#todo-inline([Conclusión: hacen falta tantos datos?])
+#subpar.grid(
+  columns: (1fr),
+  figure(image("figures/SE_single_rep.png"), caption: [Primera iteración.]), <SE_single_rep_0>,
+  figure(image("figures/SE_mean_reps_1000.png"), caption: [Promedio (1000 repeticiones).]), <SE_mean>,
+
+  caption: [$S E$ en función de $N$ para una iteración y promedio. ],
+  label: <SE>
+)
+
+Por lo tanto, se puede controlar la precisión promedio de los predictores a través de la elección de cantidad de muestras. La ecuación anterior permite elegir la cantidad de muestras necesarias teniendo en cuenta la precisión de predicción necesaria para la aplicación específica del modelo.
+
 
 = Anexo
 
