@@ -1,6 +1,7 @@
 
 #import "@preview/basic-report:0.3.1": *
 #import "@preview/dashy-todo:0.1.2": todo
+#import "@preview/subpar:0.2.2"
 
 #let todo-inline(content) = {
   todo(position: "inline")[#content]
@@ -8,6 +9,9 @@
 
 #let w0p = $w_0^"patrón"$
 #let w1p = $w_1^"patrón"$
+
+#let w0est = $w_0^"est"$
+#let w1est = $w_1^"est"$
 
 #set math.equation(numbering: none)
 
@@ -79,14 +83,34 @@ $
   w1p &= &&3.083 \
 $
 
+Luego, para N entre 10 y 24500, se repite 1000 veces:
+  - Se toman N muestras de los datos de entrenamiento.
+  - Se calculan #w0est, #w1est, $S E_1$, $S E_0$.
+  - Se calculan los intervalos de confianza 
+    - $I C_0 = [w0est -2 S E_0" "; " "w0est + 2 S E_0]$
+    - $I C_1 = [w1est -2 S E_1" "; " "w1est + 2 S E_1]$
+
+La @w_164 muestra los resultados obtenidos para $N=164$. Los valores obtenidos para #w0est y #w1est siguen aproximadamente una disctribución normal (@w_hist_164). La @w_IC_164 muestra los 1000 intervalos de confianza obtenidos. En negro se grafican los intervalos de confianza que contienen el valor real, y en rojo los que no lo contienen.
+
+#subpar.grid(
+    columns: (1fr),
+    figure(image("figures/w_n_162_reps_1000.png", width: 70%), caption: [Histogramas de #w0est, #w1est, para N=164 y 1000 repeticiones. ]), <w_hist_164>,
+    figure(image("figures/w_CI_n_162_reps_1000.png"), caption: [ $I C_0, I C_1$ para N=164 y 1000 repeticiones. Las líneas horizontales marcan #w0p, #w1p.]), <w_IC_164>,
+
+    caption: [],
+    label: <w_164>
+  )
+
+Al aumentar $N$, $I C_0$ y $I C_1$ reducen su amplitud y se centran en #w0p, y #w1p respectivamente. En otras palabras, el error de la estimación se reduce al aumentar $N$.
+
+#figure(image("figures/w_CI_mean_reps_1000.png"), caption: [Promedio de 1000 intervalos de confianza de #w0est, #w1est en función de $N$.]), <w_CI_mean>
+
+#todo-inline([Chequear el grafico anterior])
+
 
 == 
 
-#todo-inline([histogramas para w0, w1 para n=10,1000,etc N=1000])
 
-#todo-inline([IC para todas las reps de un n, para varios n. Comentar que en el 95% de las repeticiones el SE contiene el w golden])
-
-#todo-inline([Agregar en la descricion de los graficos que la linea horizontal es el valor "real"])
 #todo-inline([IC para todas una rep (o el promedio de todas?) de todos los n. Comentar que se reduce SE. En los graficos poner el area sombreada con fill_between])
 
 #todo-inline([Conclusión: hacen falta tantos datos?])
